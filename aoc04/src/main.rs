@@ -58,14 +58,14 @@ fn part2(input: &str) -> Result<()> {
             (sections[0].clone(), sections[1].clone())
         })
         .collect();
-    let no_overlaps: usize = sections.iter().fold(0, |mut acc, s| {
-        if s.0.end < s.1.start || s.1.end < s.0.start {
+    let overlaps: usize = sections.iter().fold(0, |mut acc, s| {
+        if !(s.0.end < s.1.start || s.1.end < s.0.start) {
             acc += 1;
         }
 
         acc
     });
 
-    println!("{}", sections.len() - no_overlaps);
+    println!("{}", overlaps);
     Ok(())
 }
