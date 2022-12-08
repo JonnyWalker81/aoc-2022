@@ -1,4 +1,7 @@
-use std::io::{self, Read};
+use std::{
+    collections::HashMap,
+    io::{self, Read},
+};
 
 type Result<T> = ::std::result::Result<T, Box<dyn ::std::error::Error>>;
 
@@ -7,7 +10,6 @@ fn main() -> Result<()> {
     io::stdin().read_to_string(&mut input)?;
 
     part1(&input)?;
-    // part2(&input)?;
 
     Ok(())
 }
@@ -40,7 +42,7 @@ impl From<&str> for Command {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 enum FilesystemItem {
     File(String, i32),
     Dir(String, Vec<FilesystemItem>),
@@ -48,50 +50,45 @@ enum FilesystemItem {
 
 #[derive(Debug, Clone)]
 struct Filesystem {
-    // root: Vec<FilesystemItem>,
-    current_dir: Vec<FilesystemItem>,
-    level: i32,
+    root: HashMap<String, Vec<FilesystemItem>>,
+    current_dir: Vec<String>,
 }
 
 impl Filesystem {
     fn new() -> Self {
         Self {
-            // root: vec![],
+            root: HashMap::new(),
             current_dir: vec![],
-            level: -1,
         }
     }
 
+    fn current_dir_str(&self) -> String {
+        format!("{}", self.current_dir.join("/"))
+    }
+
     fn push_file(&mut self, filename: &str, size: i32) {
-        println!("File Level: {}", self.level);
-        if let Some(FilesystemItem::Dir(_, ref mut d)) =
-            self.current_dir.get_mut(self.level as usize)
-        {
-            d.push(FilesystemItem::File(filename.to_string(), size));
+        let dir = self.current_dir_str();
+        if let Some(ref mut children) = self.root.get_mut(&dir) {
+            children.push(FilesystemItem::File(filename.to_string(), size));
         }
     }
 
     fn push_dir(&mut self, dir_name: &str) {
-        println!("Dir Level: {}", self.level);
-        if let Some(FilesystemItem::Dir(_, ref mut d)) =
-            self.current_dir.get_mut(self.level as usize)
-        {
-            d.push(FilesystemItem::Dir(dir_name.to_string(), vec![]));
+        let dir = self.current_dir_str();
+        if let Some(ref mut children) = self.root.get_mut(&dir) {
+            children.push(FilesystemItem::Dir(dir_name.to_string(), vec![]));
         }
     }
 
     fn set_current_dir(&mut self, dir_name: &str) {
         if dir_name == ".." {
-            self.level -= 1;
+            self.current_dir.pop();
         } else if dir_name == "/" {
-            self.level = 0;
-            // if self.current_dir.len() > 1 {
-            //     self.current_dir = self.current_dir[1..].to_vec();
-            // }
+            self.current_dir.push("".to_string());
+            self.root.entry("".to_string()).or_insert(vec![]);
         } else {
-            self.current_dir
-                .push(FilesystemItem::Dir(dir_name.to_string(), vec![]));
-            self.level += 1;
+            self.current_dir.push(dir_name.to_string());
+            self.root.entry(self.current_dir_str()).or_insert(vec![]);
         }
     }
 }
@@ -102,7 +99,6 @@ fn part1(input: &str) -> Result<()> {
     let mut filesystem = Filesystem::new();
 
     for c in commands {
-        println!("{:?}", c);
         match c {
             Command::Cd(d) => filesystem.set_current_dir(&d),
             Command::Ls => {}
@@ -111,6 +107,49 @@ fn part1(input: &str) -> Result<()> {
         }
     }
 
-    println!("{:#?}", filesystem);
+    let mut sizes: HashMap<String, usize> = HashMap::new();
+    for (path, files) in filesystem.root.iter() {
+        let dirs: Vec<&str> = path.split("/").collect();
+        let size = files
+            .iter()
+            .map(|f| {
+                if let FilesystemItem::File(_, size) = f {
+                    *size as usize
+                } else {
+                    0
+                }
+            })
+            .sum();
+
+        for i in 0..dirs.len() {
+            sizes
+                .entry((&dirs[0..=i]).iter().cloned().collect::<String>())
+                .and_modify(|v| *v += size)
+                .or_insert(size);
+        }
+    }
+
+    let sum = sizes
+        .iter()
+        .filter(|(_, v)| **v < 100_000)
+        .map(|(_, v)| v)
+        .sum::<usize>();
+
+    println!("{:#?}", sum);
+
+    let outtermost = sizes.get("").unwrap();
+    let free_space = 70_000_000 - outtermost;
+    let needed_free_space = 30_000_000 - free_space;
+
+    let mut used_sizes: Vec<usize> = sizes
+        .iter()
+        .map(|(_, &v)| v)
+        .filter(|s| *s > needed_free_space)
+        .collect();
+
+    used_sizes.sort();
+
+    println!("{}", used_sizes[0]);
+
     Ok(())
 }
