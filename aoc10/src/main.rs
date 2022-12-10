@@ -38,22 +38,18 @@ fn part1(input: &str) -> Result<()> {
     let mut did_twenty = false;
     let mut signal = 0;
     for i in instructions {
-        // println!("{:?}", i);
         match i {
             Instruction::Noop => {
                 clock += 1;
             }
             Instruction::Addx(v) => {
-                // clock += 2;
                 for _ in 0..2 {
                     clock += 1;
                     if !did_twenty && clock % 20 == 0 {
                         did_twenty = true;
                         signal += clock * x;
-                        // println!("{} * {} = {}", clock, x, signal);
                     } else if did_twenty && (clock + 20) % 40 == 0 {
                         signal += clock * x;
-                        // println!("{} * {} = {}", clock, x, signal);
                     }
                 }
                 x += v;
@@ -63,12 +59,8 @@ fn part1(input: &str) -> Result<()> {
         if clock >= 220 {
             break;
         }
-
-        // clock += 1;
     }
 
-    // println!("Clock: {}", clock);
-    // pintln!("X: {}", x);
     println!("Part 1 Signal: {}", signal);
     Ok(())
 }
@@ -78,43 +70,31 @@ fn part2(input: &str) -> Result<()> {
 
     let mut clock: usize = 0;
     let mut x: i32 = 1;
-    // let mut did_twenty = false;
-    // let mut signal = 0;
     let mut sprite: i32 = 1;
     let mut pixels = vec![vec!['.'; 40]; 6];
     for i in instructions {
-        // println!("{:?}", i);
         match i {
             Instruction::Noop => {
                 clock += 1;
                 let row = (clock / 40) as usize;
                 let col = clock % 40;
-                // println!("Sprite: {}, Clock: {}", sprite, clock);
                 if col >= (sprite) as usize && col < (sprite + 3) as usize {
                     pixels[row][col] = '#';
                 }
                 if clock % 40 == 0 {
-                    // signal += clock * x;
-                    // println!("{} * {} = {}", clock, x, signal);
-                    // println!("Sprite: {}, Clock: {}", sprite, clock);
                     println!("{:?}", pixels[row - 1]);
                 }
             }
             Instruction::Addx(v) => {
-                // clock += 2;
                 for _ in 0..2 {
                     clock += 1;
 
                     let row = (clock / 40) as usize;
                     let col = clock % 40;
-                    // println!("Sprite: {}, {}, {}", sprite, row, col);
                     if col >= sprite as usize && col < (sprite + 3) as usize {
                         pixels[row][col] = '#';
                     }
                     if clock % 40 == 0 {
-                        // signal += clock * x;
-                        // println!("{} * {} = {}", clock, x, signal);
-                        // println!("Sprite: {}, Clock: {}", sprite, clock);
                         println!("{:?}", pixels[row - 1]);
                     }
                 }
