@@ -182,22 +182,17 @@ fn part2(input: &str) -> Result<()> {
             // &mut position,
             // &mut tail_position,
             &mut tail_positions,
-            &mut prev_poistion,
         )?;
     }
 
     println!("Tail Positions (9): {:?}", tail_positions[&9].visited.len());
-    // println!("Tail Positions: {:?}", tail_positions);
 
     Ok(())
 }
 
 fn update_all_knots(
     c: &Command,
-    // positions: &mut HashMap<i32, (i32, i32)>,
-    // tail_position: &mut (i32, i32),
     tail_positions: &mut HashMap<i32, KnotPosition>,
-    prev_position: &mut HashMap<i32, (i32, i32)>,
 ) -> Result<()> {
     let n = match c {
         Command::Up(n) => *n,
@@ -206,130 +201,43 @@ fn update_all_knots(
         Command::Right(n) => *n,
     };
     for _ in 0..n {
-        let prev_head = tail_positions[&0].current;
-        prev_position.insert(0, prev_head);
-        let d = match c {
+        match c {
             Command::Up(_) => {
                 tail_positions.entry(0).and_modify(|p| {
                     (*p).current.0 -= 1;
-                }); // (position.0 - 1, position.1);
-                -1
+                }); 
             }
             Command::Down(_) => {
-                //*position = (position.0 + 1, position.1);
                 tail_positions.entry(0).and_modify(|p| {
                     (*p).current.0 += 1;
                 });
-                1
             }
             Command::Left(_) => {
-                //*position = (position.0, position.1 - 1);
                 tail_positions.entry(0).and_modify(|p| {
                     (*p).current.1 -= 1;
                 });
-                -1
             }
             Command::Right(_) => {
-                // *position = (position.0, position.1 + 1);
                 tail_positions.entry(0).and_modify(|p| {
                     (*p).current.1 += 1;
                 });
-                1
             }
-        };
+        }
 
         for k in 1..10 {
-            let prev = tail_positions[&k].current;
-
-            prev_position.insert(k, prev);
-
-            // check row and column for tail
-            if tail_positions[&(k - 1)].current.0 == tail_positions[&k].current.0 {
-                if (tail_positions[&k].current.1 - tail_positions[&(k - 1)].current.1).abs() > 1 {
-                    // tail_positions[&(k - 1)].current.1 += d;
-                    tail_positions.entry(k).and_modify(|s| {
-                        s.current.1 += d;
-                    });
-                }
-            } else if tail_positions[&(k - 1)].current.1 == tail_positions[&k].current.1 {
-                if (tail_positions[&(k - 1)].current.0 - tail_positions[&k].current.0).abs() > 1 {
-                    // tail_positions[&(k - 1)].current.0 += d;
-                    tail_positions.entry(k).and_modify(|s| {
-                        s.current.0 += d;
-                    });
-                }
-            } else {
-                // diagonal
-                let mut is_touching = false;
-                let mut test_pos = (
-                    tail_positions[&(k - 1)].current.0 - 1,
-                    tail_positions[&(k - 1)].current.1 + 1,
-                );
-                if test_pos.0 == tail_positions[&k].current.0
-                    && test_pos.1 == tail_positions[&k].current.1
-                // && (tail_position.0 != position.0 && tail_position.1 != position.1)
-                {
-                    is_touching = true;
-                    // *tail_position = *position;
-                }
-
-                test_pos = (
-                    tail_positions[&(k - 1)].current.0 + 1,
-                    tail_positions[&(k - 1)].current.1 + 1,
-                );
-                if test_pos.0 == tail_positions[&k].current.0
-                    && test_pos.1 == tail_positions[&k].current.1
-                // && (tail_position.0 != position.0 && tail_position.1 != position.1)
-                {
-                    is_touching = true;
-                    // *tail_position = *position;
-                }
-
-                test_pos = (
-                    tail_positions[&(k - 1)].current.0 + 1,
-                    tail_positions[&(k - 1)].current.1 - 1,
-                );
-                if test_pos.0 == tail_positions[&k].current.0
-                    && test_pos.1 == tail_positions[&k].current.1
-                // && (tail_position.0 != position.0 && tail_position.1 != position.1)
-                {
-                    is_touching = true;
-                    // *tail_position = *position;
-                }
-
-                test_pos = (
-                    tail_positions[&(k - 1)].current.0 - 1,
-                    tail_positions[&(k - 1)].current.1 - 1,
-                );
-                if test_pos.0 == tail_positions[&k].current.0
-                    && test_pos.1 == tail_positions[&k].current.1
-                // && (tail_position.0 != position.0 && tail_position.1 != position.1)
-                {
-                    is_touching = true;
-                    // *tail_position = *position;
-                }
-
-                if !is_touching {
-                    // *tail_position = prev_position[&k];
-                    // println!("Before: {:?}", tail_positions[&k].current);
-                    tail_positions.entry(k).and_modify(|s| {
-                        s.current = prev_position[&(k - 1)];
-                        s.visited.insert(s.current);
-                    });
-                    // println!("After: {:?}", tail_positions[&k].current);
-                    // tail_positions[&k].current = prev_position[&k];
-                }
-            }
-
-            if k == 9 {
-                println!("{:?}", tail_positions[&k].current);
-            }
-            // let prev_tail_pos = prev_position[&(k - 1)];
-            // tail_positions.entry(k).and_modify(|s| {
-            //     s.visited.insert(prev_tail_pos);
-            // });
-        }
-    }
+            let (dx, dy) = (
+                tail_positions[&(k - 1)].current.0 - tail_positions[&k].current.0,
+                tail_positions[&(k - 1)].current.1 - tail_positions[&k].current.1,
+            );
+            if dx.abs() > 1 || dy.abs() > 1 {
+                tail_positions.entry(k).and_modify(|s| {
+                    s.current.0 += dx.signum();
+                    s.current.1 += dy.signum();
+                    s.visited.insert(s.current);
+                });
+            }                    
+        }            
+    }          
 
     Ok(())
 }
