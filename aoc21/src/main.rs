@@ -108,7 +108,8 @@ fn part2(input: &str) -> Result<()> {
         .collect();
     println!("{monkeys:?}");
 
-    let mut human_attempt = 1i64;
+    // let mut human_attempt = 1_000_000_000_000_00i64;
+    let mut human_attempt = 1;
 
     let (left, right) = {
         let root_monkey = monkeys.get("root").unwrap().clone();
@@ -119,7 +120,9 @@ fn part2(input: &str) -> Result<()> {
         (left.clone(), right.clone())
     };
 
+    let mut i = 0;
     loop {
+        i += 1;
         monkeys.get_mut("humn").unwrap().number = human_attempt;
 
         let humn_value = evaluate(&monkeys, "humn");
@@ -131,6 +134,7 @@ fn part2(input: &str) -> Result<()> {
             println!("{l_value}");
             println!("{r_value}");
             println!("{humn_value}");
+            println!("Iterations: {i}");
             break;
         } else {
             if l_value > r_value {
