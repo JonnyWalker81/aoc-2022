@@ -177,12 +177,7 @@ fn part2(input: &str) -> Result<()> {
     }
 
     for c in commands {
-        update_all_knots(
-            &c,
-            // &mut position,
-            // &mut tail_position,
-            &mut tail_positions,
-        )?;
+        update_all_knots(&c, &mut tail_positions)?;
     }
 
     println!("Tail Positions (9): {:?}", tail_positions[&9].visited.len());
@@ -190,10 +185,7 @@ fn part2(input: &str) -> Result<()> {
     Ok(())
 }
 
-fn update_all_knots(
-    c: &Command,
-    tail_positions: &mut HashMap<i32, KnotPosition>,
-) -> Result<()> {
+fn update_all_knots(c: &Command, tail_positions: &mut HashMap<i32, KnotPosition>) -> Result<()> {
     let n = match c {
         Command::Up(n) => *n,
         Command::Left(n) => *n,
@@ -205,7 +197,7 @@ fn update_all_knots(
             Command::Up(_) => {
                 tail_positions.entry(0).and_modify(|p| {
                     (*p).current.0 -= 1;
-                }); 
+                });
             }
             Command::Down(_) => {
                 tail_positions.entry(0).and_modify(|p| {
@@ -235,9 +227,9 @@ fn update_all_knots(
                     s.current.1 += dy.signum();
                     s.visited.insert(s.current);
                 });
-            }                    
-        }            
-    }          
+            }
+        }
+    }
 
     Ok(())
 }
