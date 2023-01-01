@@ -1,7 +1,7 @@
-use std::cmp::{max, min, Ordering};
 use std::{
-    collections::{BinaryHeap, HashMap, HashSet, VecDeque},
-    fmt::{self, Display},
+    cmp::{max, min},
+    collections::{HashSet, VecDeque},
+    fmt,
     io::{self, Read},
 };
 
@@ -12,12 +12,12 @@ fn main() -> Result<()> {
     io::stdin().read_to_string(&mut input)?;
 
     part1(&input)?;
-    // part2(&input)?;
+    part2(&input)?;
 
     Ok(())
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 enum Direction {
     #[default]
     Up,
@@ -37,15 +37,12 @@ impl fmt::Display for Direction {
     }
 }
 
-type ID = (usize, usize);
-
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 enum Cell {
     #[default]
     Noop,
     Wall,
     Space,
-    // Blizzard(HashMap<ID, Direction>),
     Blizzard(Vec<Direction>),
 }
 
@@ -60,11 +57,6 @@ impl fmt::Display for Cell {
                     write!(f, "{}", d.len())
                 } else {
                     write!(f, "{}", d[0])
-                    // if d.len() == 1 {
-                    //     write!(f, "{}", d.iter().next().unwrap().1)
-                    // } else {
-                    //     write!(f, ".")
-                    // }
                 }
             }
         }
@@ -73,14 +65,10 @@ impl fmt::Display for Cell {
 
 type Point = (usize, usize);
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 struct Maze(Vec<Vec<Cell>>);
 
 impl Maze {
-    fn get_mut(&mut self, p: Point) -> &mut Cell {
-        &mut self.0[p.0][p.1]
-    }
-
     fn get(&self, p: Point) -> &Cell {
         &self.0[p.0][p.1]
     }
@@ -97,12 +85,7 @@ impl Maze {
             c @ Cell::Space => {
                 *c = Cell::Blizzard(vec![d]);
             }
-            _ => {} // if let Cell::Blizzard(ref mut v) = &mut self.0[p.0][p.1] {
-                    //     v.push(d);
-                    // } else {
-                    //     // self.0[p.0][p.1] = Cell::Blizzard(vec![(d.0, d.1.clone())].iter().cloned().collect())
-                    //     self.0[p.0][p.1] = Cell::Blizzard(vec![d]);
-                    // }
+            _ => {}
         }
     }
 }
@@ -110,26 +93,8 @@ impl Maze {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct State {
     p: (usize, usize),
-    // dist: usize,
+    maze: Maze,
     step: usize,
-}
-
-impl Ord for State {
-    fn cmp(&self, other: &Self) -> Ordering {
-        // manhattan(other.p, end_point).cmp(&manhattan(self.p, end_point)).then_with(|| other.dist.cmp(&self.dist)
-        other.step.cmp(&self.step)
-        // other
-        //     .dist
-        //     .cmp(&self.dist)
-        //     .then_with(|| other.step.cmp(&self.step))
-    }
-}
-
-// `PartialOrd` needs to be implemented as well.
-impl PartialOrd for State {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
 }
 
 fn gcd(a: usize, b: usize) -> usize {
@@ -154,51 +119,35 @@ fn part1(input: &str) -> Result<()> {
     let board: Vec<Vec<Cell>> = input
         .lines()
         .enumerate()
-        .map(|(r, l)| {
+        .map(|(_, l)| {
             l.chars()
                 .enumerate()
-                .map(|(i, c)| match c {
+                .map(|(_, c)| match c {
                     '#' => Cell::Wall,
                     '.' => Cell::Space,
-                    '>' => {
-                        // Cell::Blizzard(vec![((r, i), Direction::Right)].iter().cloned().collect())
-                        Cell::Blizzard(vec![Direction::Right])
-                    }
-                    '<' => {
-                        // Cell::Blizzard(vec![((r, i), Direction::Left)].iter().cloned().collect())
-                        Cell::Blizzard(vec![Direction::Left])
-                    }
-                    // '^' => Cell::Blizzard(vec![((r, i), Direction::Up)].iter().cloned().collect()),
+                    '>' => Cell::Blizzard(vec![Direction::Right]),
+                    '<' => Cell::Blizzard(vec![Direction::Left]),
                     '^' => Cell::Blizzard(vec![Direction::Up]),
-                    'v' => {
-                        // Cell::Blizzard(vec![((r, i), Direction::Down)].iter().cloned().collect())
-                        Cell::Blizzard(vec![Direction::Down])
-                    }
+                    'v' => Cell::Blizzard(vec![Direction::Down]),
                     _ => panic!("unrecognized: {}", c),
                 })
                 .collect()
         })
         .collect();
 
-    let mut maze = Maze(board);
+    let maze = Maze(board);
 
-    // let mut queue: VecDeque<(Point, usize)> = VecDeque::new();
     let mut queue: VecDeque<State> = VecDeque::new();
-    // let mut queue: BinaryHeap<State> = BinaryHeap::new();
     let start = maze.0[0].iter().position(|c| *c == Cell::Space).unwrap();
     let end = maze.0[maze.0.len() - 1]
         .iter()
         .position(|c| *c == Cell::Space)
         .unwrap();
     let end_point = (maze.0.len() - 1, end);
-    // let mut visited: HashSet<(Point, usize)> = HashSet::new();
     let mut visited: HashSet<State> = HashSet::new();
-    // visited.insert(((0, start), 0));
-    // queue.push_back(((0, start), 0));
-    // queue.push(((0, start), 0));
     queue.push_back(State {
         p: (0, start),
-        // dist: manhattan((0, start), end_point) as usize,
+        maze: maze.clone(),
         step: 0,
     });
 
@@ -208,164 +157,147 @@ fn part1(input: &str) -> Result<()> {
     let mut steps = 0;
     while !queue.is_empty() {
         let p = queue.pop_front().unwrap();
-        // let p = queue.pop().unwrap();
+        if visited.contains(&p) {
+            continue;
+        }
 
-        // if visited.contains(&p) {
-        //     continue;
-        // }
-        // visited.insert(p.clone());
-
-        // if p.0 == end_point || (p.0.0 == maze.0.len() - 2 && p.0.1 == maze.0[0].len() - 2){
-        // if p.0 .0 == maze.0.len() - 2 && p.0 .1 == maze.0[0].len() - 2 {
-        //     print_maze(&maze, p.0);
-        // }
-
-        // if let Cell::Blizzard(..) = maze.get(p.p) {
-        //     continue;
-        // }
-
-        // println!("Step: {steps}");
-        // print_maze(&maze, p.p);
+        visited.insert(p.clone());
         if p.p == end_point {
             println!("{}", p.step);
-            print_maze(&maze, p.p);
             break;
         }
 
-        // println!("Step: {}", steps);
-        // println!("Current: {:?}", p);
-        // println!("Queue: {:?}\n", queue);
-        // let cell = &maze.get_mut(p);
-
-        // if p.1 < steps {
-        //     continue;
-        // }
-        // can move
-
-        // let dirs: Vec<(i32, i32)> = vec![(-1, 0), (1, 0), (0, -1), (0, 1)];
-        // for d in dirs {
-        //     let move_to = ()
-        // }
-        // print_maze(&maze, p.p);
-        if steps % 12 == 0 {
-            // println!("Step: {steps}");
-            print_maze(&maze, p.p);
-        }
-        // print_maze(&maze, p.0);
-        // let mut blizzard_moves: HashMap<Point, Vec<(ID, Direction, Point)>> = HashMap::new();
-
-        // print_maze(&maze, p.p);
-        maze = move_blizzards(&maze);
-        // print_maze(&maze, p.p);
-        // if !blizzard_moves.is_empty() {
-        //     for (k, v) in &blizzard_moves {
-        //         for (id, d, to) in v {
-        //             let from_cell = maze.get_mut(*k);
-        //             if let Cell::Blizzard(ref mut dd) = from_cell {
-        //                 dd.remove(id);
-        //                 if dd.len() == 0 {
-        //                     *from_cell = Cell::Space;
-        //                 }
-        //             }
-        //             // let mut d = match cell {
-        //             //     Cell::Blizzard(ref d) => d,
-        //             //     _ => panic!("should not get here"),
-        //             // };
-        //
-        //             // *cell = Cell::Space;
-        //
-        //             // let dv = v.iter().map(|(dd,_)| )
-        //             let to_cell = maze.get_mut(*to);
-        //             if let Cell::Blizzard(ref mut dd) = to_cell {
-        //                 dd.insert(*id, d.clone());
-        //             }
-        //
-        //             if let Cell::Space = to_cell {
-        //                 *to_cell = Cell::Blizzard(vec![(*id, d.clone())].iter().cloned().collect());
-        //             }
-        //         }
-        //     }
-        // }
-
-        // print_maze(&maze, p.p);
-        // let neighbors = neighbors(&maze, p.p, steps);
-        // println!("neighbors: {:?}", neighbors);
-        // if neighbors.is_empty() {
-        //     queue.clear();
-        //     queue.push_back((p.0, p.1 + 1));
-        //     // visited.remove(&p);
-        // } else {
+        let moved = move_blizzards(&p.maze);
         let dirs: Vec<(i32, i32)> = vec![(0, 1), (0, -1), (-1, 0), (1, 0), (0, 0)];
         for d in dirs {
             let n = ((p.p.0 as i32 + d.0), (p.p.1 as i32 + d.1));
 
             if n.0 < 0
-                || n.0 as usize > maze.0.len() - 1
-                || n.1 < 1
-                || n.1 as usize > maze.0[0].len() - 2
+                || n.0 as usize > moved.0.len() - 1
+                || n.1 < 0
+                || n.1 as usize > moved.0[0].len() - 1
             {
                 continue;
             }
 
             let np = (n.0 as usize, n.1 as usize);
-            // if let Cell::Blizzard(..) = maze.get(n) {
-            //     continue;
-            // }
-
-            match maze.get(np) {
+            match moved.get(np) {
                 Cell::Blizzard(_) | Cell::Wall => continue,
                 _ => {}
             }
 
-            // if n == p.0 {
-            //     queue.clear();
-            // }
-            // queue.push_back((n, p.1 + 1));
-            // queue.push((n, p.1 + 1));
             let state = State {
                 p: np,
-                // dist: manhattan(np, end_point) as usize,
+                maze: moved.clone(),
                 step: p.step + 1,
             };
-            if !visited.contains(&state) {
-                queue.push_back(state.clone());
-                visited.insert(state);
-            }
-            // queue.push_back((n, steps));
-            // visited.insert(n);
+            queue.push_back(state);
         }
-        // println!("Queue (after neighbors): {:?}\n", queue);
-        // println!("Visited: {:?}\n", visited);
-        // }
-
-        // queue
-        //     .make_contiguous()
-        //     .sort_by(|a, b| manhattan(a.0, end_point).cmp(&manhattan(b.0, end_point)));
-        // queue.make_contiguous().sort_by(|a, b| a.1.cmp(&b.1));
-
         steps += 1;
-        // if steps % 10_0        == 0{
-        // if steps % 12 == 0 {
-        // println!("Step: {steps}");
-        // print_maze(&maze, p.p);
-        // }
-        if steps == 600 {
-            break;
-        }
     }
 
-    // print_maze(&maze, end_point);
+    println!("{steps}");
+    Ok(())
+}
+
+fn part2(input: &str) -> Result<()> {
+    let board: Vec<Vec<Cell>> = input
+        .lines()
+        .enumerate()
+        .map(|(_, l)| {
+            l.chars()
+                .enumerate()
+                .map(|(_, c)| match c {
+                    '#' => Cell::Wall,
+                    '.' => Cell::Space,
+                    '>' => Cell::Blizzard(vec![Direction::Right]),
+                    '<' => Cell::Blizzard(vec![Direction::Left]),
+                    '^' => Cell::Blizzard(vec![Direction::Up]),
+                    'v' => Cell::Blizzard(vec![Direction::Down]),
+                    _ => panic!("unrecognized: {}", c),
+                })
+                .collect()
+        })
+        .collect();
+
+    let maze = Maze(board);
+
+    let mut queue: VecDeque<State> = VecDeque::new();
+    let start = maze.0[0].iter().position(|c| *c == Cell::Space).unwrap();
+    let end = maze.0[maze.0.len() - 1]
+        .iter()
+        .position(|c| *c == Cell::Space)
+        .unwrap();
+    let end_point = (maze.0.len() - 1, end);
+    let mut visited: HashSet<State> = HashSet::new();
+    queue.push_back(State {
+        p: (0, start),
+        maze: maze.clone(),
+        step: 0,
+    });
+
+    let lcm = lcm(maze.0.len() - 2, maze.0[0].len() - 2);
+    println!("lcm: {lcm}");
+
+    let mut steps = 0;
+    let goals = vec![end_point, (0, start), end_point];
+    let mut goal_idx = 0;
+
+    while !queue.is_empty() {
+        let p = queue.pop_front().unwrap();
+        if visited.contains(&p) {
+            continue;
+        }
+
+        visited.insert(p.clone());
+        if p.p == goals[goal_idx] {
+            println!("Part 2: {}", p.step);
+            goal_idx += 1;
+            if goal_idx >= goals.len() {
+                break;
+            }
+            queue.clear();
+            queue.push_back(p.clone());
+        }
+
+        let moved = move_blizzards(&p.maze);
+        let dirs: Vec<(i32, i32)> = vec![(0, 1), (0, -1), (-1, 0), (1, 0), (0, 0)];
+        for d in dirs {
+            let n = ((p.p.0 as i32 + d.0), (p.p.1 as i32 + d.1));
+
+            if n.0 < 0
+                || n.0 as usize > moved.0.len() - 1
+                || n.1 < 0
+                || n.1 as usize > moved.0[0].len() - 1
+            {
+                continue;
+            }
+
+            let np = (n.0 as usize, n.1 as usize);
+            match moved.get(np) {
+                Cell::Blizzard(_) | Cell::Wall => continue,
+                _ => {}
+            }
+
+            let state = State {
+                p: np,
+                maze: moved.clone(),
+                step: p.step + 1,
+            };
+            queue.push_back(state);
+        }
+        steps += 1;
+    }
+
     println!("{steps}");
     Ok(())
 }
 
 fn move_blizzards(maze: &Maze) -> Maze {
     let mut new_maze = Maze(vec![vec![Cell::Space; maze.0[0].len()]; maze.0.len()]);
-    // print_maze(&new_maze, p.p);
     for r in 0..maze.0.len() {
         for c in 0..maze.0[r].len() {
             match maze.get((r, c)) {
-                // Cell::Space => new_maze.set((r, c), Cell::Space),
                 Cell::Wall => new_maze.set((r, c), Cell::Wall),
                 Cell::Blizzard(v) => {
                     for d in v {
@@ -398,72 +330,13 @@ fn move_blizzards(maze: &Maze) -> Maze {
                 }
                 _ => {}
             }
-            // if let Cell::Blizzard(v) = maze.get((r, c)) {
-            //     for (id, d) in v {
-            //         let mv: (i32, i32) = match d {
-            //             Direction::Up => (-1, 0),
-            //             Direction::Down => (1, 0),
-            //             Direction::Left => (0, -1),
-            //             Direction::Right => (0, 1),
-            //         };
-            //         let mut move_to = (r as i32 + mv.0, c as i32 + mv.1);
-            //         if move_to.0 < 1 {
-            //             move_to.0 = maze.0.len() as i32 - 2 as i32;
-            //         }
-            //
-            //         if move_to.0 >= maze.0.len() as i32 - 1 as i32 {
-            //             move_to.0 = 1;
-            //         }
-            //
-            //         if move_to.1 < 1 {
-            //             move_to.1 = maze.0[0].len() as i32 - 2;
-            //         }
-            //
-            //         if move_to.1 >= maze.0[0].len() as i32 - 1 {
-            //             move_to.1 = 1;
-            //         }
-            //
-            //         let to = (move_to.0 as usize, move_to.1 as usize);
-            //         blizzard_moves
-            //             .entry((r, c))
-            //             .and_modify(|f| f.push((*id, d.clone(), to)))
-            //             .or_insert(vec![(*id, d.clone(), to)]);
-            //     }
-            // }
         }
     }
 
     new_maze
 }
 
-fn manhattan(a: Point, b: Point) -> i32 {
-    (a.0 as i32 - b.0 as i32).abs() + (a.1 as i32 - b.1 as i32).abs()
-}
-
-fn neighbors(maze: &Maze, p: Point, step: usize) -> Vec<Point> {
-    let mut points = vec![p];
-    let dirs: Vec<(i32, i32)> = vec![(0, 1), (0, -1), (-1, 0), (1, 0)];
-
-    for d in dirs {
-        let t = (p.0 as i32 + d.0, p.1 as i32 + d.1);
-        if t.0 <= 0 || t.1 < 0 || t.0 as usize >= maze.0.len() || t.1 as usize >= maze.0[0].len() {
-            continue;
-        }
-
-        let n = (t.0 as usize, t.1 as usize);
-        // if visited.contains(&(n, step)) {
-        //     continue;
-        // }
-
-        if let Cell::Space = maze.get(n) {
-            points.push(n);
-        }
-    }
-
-    points
-}
-
-fn print_maze(maze: &Maze, p: Point) {
+fn _print_maze(maze: &Maze, p: Point) {
     for r in 0..maze.0.len() {
         for c in 0..maze.0[r].len() {
             if p == (r, c) {
