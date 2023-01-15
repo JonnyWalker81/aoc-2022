@@ -1,5 +1,6 @@
 use std::{
-    collections::HashSet,
+    collections::{hash_map::DefaultHasher, HashMap, HashSet},
+    hash::{Hash, Hasher},
     io::{self, Read},
 };
 
@@ -10,7 +11,7 @@ fn main() -> Result<()> {
     io::stdin().read_to_string(&mut input)?;
 
     part1(&input)?;
-    // part2(&input)?;
+    part2(&input)?;
 
     Ok(())
 }
@@ -31,9 +32,9 @@ impl From<char> for Direction {
     }
 }
 
-type Point = (i32, i32);
+type Point = (i64, i64);
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Hash)]
 enum ShapeKind {
     Star,
     HorizontalLine,
@@ -43,13 +44,13 @@ enum ShapeKind {
     Square,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Hash)]
 struct Shape {
     kind: ShapeKind,
     points: Vec<Point>,
-    bottom: i32,
-    height: i32,
-    width: i32,
+    bottom: i64,
+    height: i64,
+    width: i64,
 }
 
 fn make_shapes() -> Vec<Shape> {
@@ -91,107 +92,216 @@ fn make_shapes() -> Vec<Shape> {
         },
     ]
 }
-// const LEFT_EDGE: i32 = 0;
-const RIGHT_EDGE: i32 = 7;
+
+const RIGHT_EDGE: i64 = 7;
 
 fn part1(input: &str) -> Result<()> {
     let gusts: Vec<Direction> = input.trim_end().chars().map(|c| c.into()).collect();
-    println!("{gusts:?}");
 
     let shapes = make_shapes();
 
-    let mut is_movement = true;
-    let mut current_shape_index = 0;
     let mut chamber: Vec<Shape> = vec![];
-    let mut new_falling_rock = true;
-    let mut shape = Shape::default();
-    let mut i = 0;
+
+    let mut current_shape_index = 0;
     let mut gust_idx = 0;
-    loop {
-        i += 1;
-        if i % 50 == 0 {
-            break;
-        }
-        if new_falling_rock {
-            shape = shapes[current_shape_index % shapes.len()].clone();
-            let height: i32 = chamber
-                .iter()
-                .flat_map(|s| &s.points)
-                .map(|p| p.1)
-                .max()
-                .unwrap_or(0);
-            // chamber.push(shape.clone());
-            // current_shape_index += 1;
-            let top = chamber.last();
-            translate(top, &mut shape, (height + 3, 2), height); // set initial position
-            new_falling_rock = false;
-        }
 
-        print_chamber(&chamber, Some(&shape));
-        // let height: i32 = chamber.iter().map(|s| s.height).sum();
-        let height: i32 = chamber
-            .iter()
-            .flat_map(|s| &s.points)
-            .map(|p| p.1)
-            .max()
-            .unwrap_or(0);
-        let top = chamber.last();
-        if is_movement {
-            // move left or right
-            let gust = &gusts[gust_idx % gusts.len()];
-            gust_idx += 1;
-            match gust {
-                Direction::Left => translate(top, &mut shape, (0, -1), height),
-                Direction::Right => translate(top, &mut shape, (0, 1), height),
-            };
-        } else {
-            // move down
-            // let top = chamber.last_mut().unwrap();
-            // let height: i32 = chamber.iter().map(|s| s.height).sum();
-            if !translate(top, &mut shape, (-1, 0), height) {
-                chamber.push(shape.clone());
-                current_shape_index += 1;
-                new_falling_rock = true;
-            }
-        }
-
-        // if will_collision(&chamber, &shape) {
-        //     // println!("Collision...");
-        //     new_falling_rock = true;
-        // }
-
-        // if i == 10 {
-        //     break;
-        // }
-        // if chamber.len() >= 2022 {
-        if chamber.len() >= 10 {
-            break;
-        }
-
-        is_movement = !is_movement;
+    while chamber.len() < 2022 {
+        drop_rock(
+            &mut chamber,
+            &shapes,
+            &gusts,
+            &mut current_shape_index,
+            &mut gust_idx,
+        );
     }
-
     print_chamber(&chamber, None);
 
     println!("Rock count: {}", chamber.len());
-    let height: i32 = chamber.iter().map(|s| s.height).sum();
+    let height: i64 = chamber
+        .iter()
+        .flat_map(|s| &s.points)
+        .map(|p| p.0 + 1)
+        .max()
+        .unwrap_or(0);
     println!("Height: {height}");
 
     Ok(())
 }
 
-fn translate(top: Option<&Shape>, shape: &mut Shape, d: (i32, i32), height: i32) -> bool {
-    // shape.bottom += d.0;
-    // if shape.bottom < 0 {
-    //     shape.bottom = 0;
-    // }
+fn drop_rock(
+    chamber: &mut Vec<Shape>,
+    shapes: &Vec<Shape>,
+    gusts: &Vec<Direction>,
+    current_shape_index: &mut usize,
+    gust_idx: &mut usize,
+) -> Shape {
+    let mut shape = shapes[*current_shape_index % shapes.len()].clone();
+    let height: i64 = chamber
+        .iter()
+        .flat_map(|s| &s.points)
+        .map(|p| p.0 + 1)
+        .max()
+        .unwrap_or(0);
+    translate(&chamber, &mut shape, (height + 3, 2), height); // set initial position
 
+    loop {
+        let height: i64 = chamber
+            .iter()
+            .flat_map(|s| &s.points)
+            .map(|p| p.0 + 1)
+            .max()
+            .unwrap_or(0);
+
+        let gust = &gusts[*gust_idx % gusts.len()];
+        *gust_idx += 1;
+        match gust {
+            Direction::Left => translate(&chamber, &mut shape, (0, -1), height),
+            Direction::Right => translate(&chamber, &mut shape, (0, 1), height),
+        };
+
+        if !translate(&chamber, &mut shape, (-1, 0), height) {
+            chamber.push(shape.clone());
+            *current_shape_index += 1;
+            break;
+        }
+    }
+
+    shape
+}
+
+fn part2(input: &str) -> Result<()> {
+    let gusts: Vec<Direction> = input.trim_end().chars().map(|c| c.into()).collect();
+    // println!("{gusts:?}");
+
+    let shapes = make_shapes();
+
+    let mut chamber: Vec<Shape> = vec![];
+    let mut current_shape_index = 0;
+    let mut gust_idx = 0;
+    let rock_count = 1_000_000_000_000;
+    let mut hashes: HashMap<u64, (usize, usize)> = HashMap::new();
+    let mut drops = 0;
+
+    let ihs = hash_state(0, &shapes[0], &chamber);
+    hashes.insert(ihs, (0usize, 0usize));
+
+    while chamber.len() < rock_count {
+        let shape = drop_rock(
+            &mut chamber,
+            &shapes,
+            &gusts,
+            &mut current_shape_index,
+            &mut gust_idx,
+        );
+        drops += 1;
+
+        if chamber.len() < 10 {
+            continue;
+        }
+
+        let gi = gust_idx % gusts.len();
+        let h = hash_state(gi, &shape, &chamber);
+
+        let height: i64 = chamber
+            .iter()
+            .flat_map(|s| &s.points)
+            .map(|p| p.0 + 1)
+            .max()
+            .unwrap_or(0);
+
+        if let Some(v) = hashes.get(&h) {
+            println!("Found cycle...");
+            let delta_height = (height as usize) - v.0;
+            let delta_drops = drops - v.1;
+            let remaining_drops = rock_count - v.1;
+            let div = remaining_drops / delta_drops;
+            let mmod = remaining_drops % delta_drops;
+
+            let int_height = v.0 + delta_height * div;
+
+            for _ in 0..mmod {
+                drop_rock(
+                    &mut chamber,
+                    &shapes,
+                    &gusts,
+                    &mut current_shape_index,
+                    &mut gust_idx,
+                );
+            }
+
+            let height_after_drops = chamber
+                .iter()
+                .flat_map(|s| &s.points)
+                .map(|p| p.0 + 1)
+                .max()
+                .unwrap_or(0);
+
+            let leftover_height = height_after_drops - height;
+            println!("Leftover height: {}", leftover_height);
+            println!("Total: {}", int_height + leftover_height as usize);
+
+            break;
+        }
+
+        hashes.insert(h, (height as usize, drops));
+    }
+
+    // print_chamber(&chamber, None);
+
+    println!("Rock count: {}", chamber.len());
+    let height: i64 = chamber
+        .iter()
+        .flat_map(|s| &s.points)
+        .map(|p| p.0 + 1)
+        .max()
+        .unwrap_or(0);
+    println!("Height: {height}");
+
+    Ok(())
+}
+
+fn hash_state(gust_idx: usize, shape: &Shape, chamber: &Vec<Shape>) -> u64 {
+    if chamber.is_empty() {
+        return 0;
+    }
+    let mut hasher = DefaultHasher::new();
+    gust_idx.hash(&mut hasher);
+    shape.kind.hash(&mut hasher);
+    let shape_idx = chamber.len() - 1;
+    let start = shape_idx - 4;
+    let height: i64 = chamber
+        .iter()
+        .flat_map(|s| &s.points)
+        .map(|p| p.0 + 1)
+        .max()
+        .unwrap_or(0);
+    let below_height = height - 20;
+    let mut i = 0;
+    let mut j = 0;
+    for r in below_height..height {
+        for c in 0..7 {
+            for k in start..shape_idx {
+                let s = &chamber[k];
+                let shape_points: HashSet<&Point> = s.points.iter().collect();
+                if shape_points.contains(&(r, c)) {
+                    (i, j).hash(&mut hasher);
+                }
+            }
+            j += 1;
+        }
+        i += 1;
+    }
+
+    hasher.finish()
+}
+
+fn translate(chamber: &Vec<Shape>, shape: &mut Shape, d: (i64, i64), height: i64) -> bool {
     let mut sandbox = shape.points.clone();
     let mut can_move = true;
     for p in &mut sandbox {
         p.0 += d.0;
         p.1 += d.1;
-        if top.is_none() && p.0 < height {
+        if chamber.is_empty() && p.0 < height {
             can_move = false;
             break;
         }
@@ -207,13 +317,16 @@ fn translate(top: Option<&Shape>, shape: &mut Shape, d: (i32, i32), height: i32)
         }
     }
 
-    if let Some(top) = top {
-        let top_points: HashSet<&Point> = top.points.iter().collect();
+    for shape in chamber.iter().rev() {
+        let shape_points: HashSet<&Point> = shape.points.iter().collect();
         for p in &sandbox {
-            if top_points.contains(&p) {
+            if shape_points.contains(&p) {
                 can_move = false;
                 break;
             }
+        }
+        if !can_move {
+            break;
         }
     }
 
@@ -224,36 +337,11 @@ fn translate(top: Option<&Shape>, shape: &mut Shape, d: (i32, i32), height: i32)
     can_move
 }
 
-fn will_collision(chamber: &Vec<Shape>, shape: &Shape) -> bool {
-    if chamber.is_empty() {
-        if shape.bottom - 1 <= 0 {
-            return true;
-        }
-        false
-    } else {
-        let mut test_points = vec![];
-        for p in &shape.points {
-            test_points.push(p.0 - 1);
-        }
-
-        let top = chamber.last().unwrap();
-        for p in &top.points {
-            for tp in &test_points {
-                if *tp == p.0 {
-                    return true;
-                }
-            }
-        }
-        false
-    }
-}
-
 fn print_chamber(chamber: &Vec<Shape>, current: Option<&Shape>) {
-    // let height: i32 = chamber.iter().map(|s| s.height).sum();
-    let height: i32 = chamber
+    let height: i64 = chamber
         .iter()
         .flat_map(|s| &s.points)
-        .map(|p| p.1)
+        .map(|p| p.0)
         .max()
         .unwrap_or(0);
     let mut shapes = chamber.clone();
