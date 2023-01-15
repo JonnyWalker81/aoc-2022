@@ -114,15 +114,10 @@ fn part1(input: &str) -> Result<()> {
             &mut gust_idx,
         );
     }
-    print_chamber(&chamber, None);
+    // print_chamber(&chamber, None);
 
     println!("Rock count: {}", chamber.len());
-    let height: i64 = chamber
-        .iter()
-        .flat_map(|s| &s.points)
-        .map(|p| p.0 + 1)
-        .max()
-        .unwrap_or(0);
+    let height = chamber_height(&chamber);
     println!("Height: {height}");
 
     Ok(())
@@ -136,22 +131,11 @@ fn drop_rock(
     gust_idx: &mut usize,
 ) -> Shape {
     let mut shape = shapes[*current_shape_index % shapes.len()].clone();
-    let height: i64 = chamber
-        .iter()
-        .flat_map(|s| &s.points)
-        .map(|p| p.0 + 1)
-        .max()
-        .unwrap_or(0);
-    translate(&chamber, &mut shape, (height + 3, 2), height); // set initial position
+    let height = chamber_height(chamber) as i64;
+    translate(&chamber, &mut shape, (height + 3, 2), height as usize); // set initial position
 
     loop {
-        let height: i64 = chamber
-            .iter()
-            .flat_map(|s| &s.points)
-            .map(|p| p.0 + 1)
-            .max()
-            .unwrap_or(0);
-
+        let height = chamber_height(&chamber);
         let gust = &gusts[*gust_idx % gusts.len()];
         *gust_idx += 1;
         match gust {
@@ -202,12 +186,7 @@ fn part2(input: &str) -> Result<()> {
         let gi = gust_idx % gusts.len();
         let h = hash_state(gi, &shape, &chamber);
 
-        let height: i64 = chamber
-            .iter()
-            .flat_map(|s| &s.points)
-            .map(|p| p.0 + 1)
-            .max()
-            .unwrap_or(0);
+        let height = chamber_height(&chamber);
 
         if let Some(v) = hashes.get(&h) {
             println!("Found cycle...");
@@ -229,14 +208,8 @@ fn part2(input: &str) -> Result<()> {
                 );
             }
 
-            let height_after_drops = chamber
-                .iter()
-                .flat_map(|s| &s.points)
-                .map(|p| p.0 + 1)
-                .max()
-                .unwrap_or(0);
-
-            let leftover_height = height_after_drops - height;
+            let height_after_drops = chamber_height(&chamber);
+            let leftover_height = height_after_drops - height as usize;
             println!("Leftover height: {}", leftover_height);
             println!("Total: {}", int_height + leftover_height as usize);
 
@@ -249,15 +222,19 @@ fn part2(input: &str) -> Result<()> {
     // print_chamber(&chamber, None);
 
     println!("Rock count: {}", chamber.len());
-    let height: i64 = chamber
+    let height = chamber_height(&chamber);
+    println!("Height: {height}");
+
+    Ok(())
+}
+
+fn chamber_height(chamber: &Vec<Shape>) -> usize {
+    chamber
         .iter()
         .flat_map(|s| &s.points)
         .map(|p| p.0 + 1)
         .max()
-        .unwrap_or(0);
-    println!("Height: {height}");
-
-    Ok(())
+        .unwrap_or(0) as usize
 }
 
 fn hash_state(gust_idx: usize, shape: &Shape, chamber: &Vec<Shape>) -> u64 {
@@ -269,12 +246,7 @@ fn hash_state(gust_idx: usize, shape: &Shape, chamber: &Vec<Shape>) -> u64 {
     shape.kind.hash(&mut hasher);
     let shape_idx = chamber.len() - 1;
     let start = shape_idx - 4;
-    let height: i64 = chamber
-        .iter()
-        .flat_map(|s| &s.points)
-        .map(|p| p.0 + 1)
-        .max()
-        .unwrap_or(0);
+    let height = chamber_height(chamber) as i64;
     let below_height = height - 20;
     let mut i = 0;
     let mut j = 0;
@@ -295,13 +267,13 @@ fn hash_state(gust_idx: usize, shape: &Shape, chamber: &Vec<Shape>) -> u64 {
     hasher.finish()
 }
 
-fn translate(chamber: &Vec<Shape>, shape: &mut Shape, d: (i64, i64), height: i64) -> bool {
+fn translate(chamber: &Vec<Shape>, shape: &mut Shape, d: (i64, i64), height: usize) -> bool {
     let mut sandbox = shape.points.clone();
     let mut can_move = true;
     for p in &mut sandbox {
         p.0 += d.0;
         p.1 += d.1;
-        if chamber.is_empty() && p.0 < height {
+        if chamber.is_empty() && p.0 < height as i64 {
             can_move = false;
             break;
         }
@@ -337,13 +309,8 @@ fn translate(chamber: &Vec<Shape>, shape: &mut Shape, d: (i64, i64), height: i64
     can_move
 }
 
-fn print_chamber(chamber: &Vec<Shape>, current: Option<&Shape>) {
-    let height: i64 = chamber
-        .iter()
-        .flat_map(|s| &s.points)
-        .map(|p| p.0)
-        .max()
-        .unwrap_or(0);
+fn _print_chamber(chamber: &Vec<Shape>, current: Option<&Shape>) {
+    let height = chamber_height(chamber) as i64;
     let mut shapes = chamber.clone();
     if let Some(cur) = current {
         shapes.push(cur.clone());
